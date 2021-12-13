@@ -2,8 +2,10 @@
 from __future__ import unicode_literals
 
 import logging
+import math
 import os
 import re
+import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from copy import copy
 
@@ -273,6 +275,7 @@ def _run_test_statement_metrics_and_plans(
 @pytest.mark.integration
 @pytest.mark.usefixtures('dd_environment')
 def test_statement_basic_metrics_query(datadog_conn_docker, dbm_instance):
+    now = time.time()
     test_query = "select * from sys.databases"
 
     # run this test query to guarantee there's at least one application query in the query plan cache
@@ -294,8 +297,9 @@ def test_statement_basic_metrics_query(datadog_conn_docker, dbm_instance):
     # without the cast this is expected to fail with
     # pyodbc.ProgrammingError: ('ODBC SQL type -150 is not yet supported.  column-index=77  type=-150', 'HY106')
     with datadog_conn_docker.cursor() as cursor:
-        logging.debug("running statement_metrics_query: %s", statement_metrics_query)
-        cursor.execute(statement_metrics_query)
+        params = (math.ceil(time.time() - now),)
+        logging.debug("running statement_metrics_query [%s] %s", statement_metrics_query, params)
+        cursor.execute(statement_metrics_query, params)
 
         columns = [i[0] for i in cursor.description]
         # construct row dicts manually as there's no DictCursor for pyodbc
