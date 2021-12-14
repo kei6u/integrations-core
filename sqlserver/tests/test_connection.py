@@ -108,13 +108,15 @@ def _run_test_query_timeout(aggregator, dd_run_check, instance):
     check.initialize_connection()
     with check.connection.open_managed_default_connection():
         with check.connection.get_managed_cursor() as cursor:
+            # should complete quickly
             cursor.execute("select 1")
-            try:
+            assert cursor.fetchall(), "should have a result here"
+            with pytest.raises(Exception) as e:
                 cursor.execute("waitfor delay '00:00:02'")
-            except Exception as e:
                 if isinstance(e, pyodbc.OperationalError):
                     assert 'timeout' in "".join(e.args).lower(), "must be a timeout"
                 else:
                     import adodbapi
+
                     assert type(e) == adodbapi.apibase.DatabaseError
                     assert 'timeout' in "".join(e.args).lower(), "must be a timeout"
