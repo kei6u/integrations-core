@@ -207,6 +207,7 @@ def _get_conn_for_user(instance_docker, user):
         instance_docker['driver'], instance_docker['host'], user, "Password12!"
     )
     conn = pyodbc.connect(conn_str, timeout=30, autocommit=False)
+    conn.timeout = 30
     return conn
 
 

@@ -75,6 +75,7 @@ def datadog_conn_docker(instance_docker):
         instance_docker['driver'], instance_docker['host'], instance_docker['username'], instance_docker['password']
     )
     conn = pyodbc.connect(conn_str, timeout=30)
+    conn.timeout = 30
     yield conn
     conn.close()
 
@@ -86,6 +87,7 @@ def bob_conn(instance_docker):
         instance_docker['driver'], instance_docker['host'], "bob", "Password12!"
     )
     conn = pyodbc.connect(conn_str, timeout=30)
+    conn.timeout = 30
     yield conn
     conn.close()
 
@@ -97,6 +99,7 @@ def sa_conn(instance_docker):
         instance_docker['driver'], instance_docker['host'], "sa", "Password123"
     )
     conn = pyodbc.connect(conn_str, timeout=30)
+    conn.timeout = 30
     yield conn
     conn.close()
 
