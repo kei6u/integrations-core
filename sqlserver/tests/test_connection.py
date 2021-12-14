@@ -98,8 +98,8 @@ def test_query_timeout(aggregator, dd_run_check, instance_docker):
 
 @windows_ci
 @pytest.mark.integration
-def test_query_timeout_windows(aggregator, dd_run_check, instance_sql_msoledb_dbm):
-    _run_test_query_timeout(aggregator, dd_run_check, instance_sql_msoledb_dbm)
+def test_query_timeout_windows(aggregator, dd_run_check, instance_sql_msoledb):
+    _run_test_query_timeout(aggregator, dd_run_check, instance_sql_msoledb)
 
 
 def _run_test_query_timeout(aggregator, dd_run_check, instance):
