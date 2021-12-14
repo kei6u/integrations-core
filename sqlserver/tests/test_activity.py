@@ -72,11 +72,13 @@ def _run_test_collect_activity(aggregator, instance_docker, dd_run_check, dbm_in
     with bob_conn.cursor() as cursor:
         cursor.execute("USE {}".format("datadog_test"))
         cursor.execute(query)
+        cursor.fetchall()
 
     fred_conn = _get_conn_for_user(instance_docker, "fred")
     with fred_conn.cursor() as cursor:
         cursor.execute("USE {}".format("datadog_test"))
         cursor.execute(query)
+        cursor.fetchall()
 
     dd_run_check(check)
     fred_conn.close()  # close the open tx that belongs to fred
