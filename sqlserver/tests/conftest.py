@@ -68,38 +68,50 @@ def instance_docker():
     return deepcopy(INSTANCE_DOCKER)
 
 
+def _common_pyodbc_connect(conn_str):
+    # all connections must have the correct timeouts set
+    # if the statement timeout is not set then the integration tests can hang for a very long time
+    conn = pyodbc.connect(conn_str, timeout=30)
+    conn.timeout = 30
+
+    def _query():
+        with conn.cursor() as cursor:
+            cursor.execute("select 1")
+            cursor.fetchall()
+
+    WaitFor(_query, wait=3, attempts=10)()
+    return conn
+
+
 @pytest.fixture
-def datadog_conn_docker(dd_environment, instance_docker):
+def datadog_conn_docker(instance_docker):
     # Make DB connection
     conn_str = 'DRIVER={};Server={};Database=master;UID={};PWD={};'.format(
         instance_docker['driver'], instance_docker['host'], instance_docker['username'], instance_docker['password']
     )
-    conn = pyodbc.connect(conn_str, timeout=30, autocommit=True)
-    conn.timeout = 30
+    conn = _common_pyodbc_connect(conn_str)
     yield conn
     conn.close()
 
 
 @pytest.fixture
-def bob_conn(dd_environment, instance_docker):
+def bob_conn(instance_docker):
     # Make DB connection
     conn_str = 'DRIVER={};Server={};Database=master;UID={};PWD={};'.format(
         instance_docker['driver'], instance_docker['host'], "bob", "Password12!"
     )
-    conn = pyodbc.connect(conn_str, timeout=30, autocommit=True)
-    conn.timeout = 30
+    conn = _common_pyodbc_connect(conn_str)
     yield conn
     conn.close()
 
 
 @pytest.fixture
-def sa_conn(dd_environment, instance_docker):
+def sa_conn(instance_docker):
     # system administrator connection
     conn_str = 'DRIVER={};Server={};Database=master;UID={};PWD={};'.format(
         instance_docker['driver'], instance_docker['host'], "sa", "Password123"
     )
-    conn = pyodbc.connect(conn_str, timeout=30, autocommit=True)
-    conn.timeout = 30
+    conn = _common_pyodbc_connect(conn_str)
     yield conn
     conn.close()
 
