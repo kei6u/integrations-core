@@ -114,5 +114,7 @@ def _run_test_query_timeout(aggregator, dd_run_check, instance):
             except Exception as e:
                 if isinstance(e, pyodbc.OperationalError):
                     assert 'timeout' in "".join(e.args).lower(), "must be a timeout"
-                # crash to see what the windows type is
-                assert type(e) == pyodbc.OperationalError
+                else:
+                    import adodbapi
+                    assert type(e) == adodbapi.apibase.DatabaseError
+                    assert 'timeout' in "".join(e.args).lower(), "must be a timeout"
