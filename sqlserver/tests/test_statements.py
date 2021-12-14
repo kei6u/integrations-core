@@ -191,13 +191,20 @@ def _run_test_statement_metrics_and_plans(
 ):
     check = SQLServer(CHECK_NAME, {}, [dbm_instance])
 
-    with bob_conn.cursor() as cursor:
-        cursor.execute("USE {}".format(database))
-
-    def _run_test_queries():
-        with bob_conn.cursor() as cursor:
-            for params in param_groups:
-                cursor.execute(query, params)
+    def _run_test_queries(attempts=3):
+        for i in range(attempts):
+            try:
+                with bob_conn.cursor() as cursor:
+                    cursor.execute("USE {}".format(database))
+                    for params in param_groups:
+                        cursor.execute(query, params)
+                    break
+            except Exception:
+                logging.exception("failed to run bob test queries. attempt=%s.", i)
+                time.sleep(1)
+                continue
+        else:
+            raise Exception("Failed to run test queries after {} attempts".format(attempts))
 
     _run_test_queries()
     dd_run_check(check)
