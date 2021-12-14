@@ -4,10 +4,15 @@
 import re
 
 import mock
+import pyodbc
 import pytest
 
 from datadog_checks.base import ConfigurationError
+from datadog_checks.sqlserver import SQLServer
 from datadog_checks.sqlserver.connection import Connection
+
+from .common import CHECK_NAME
+from .utils import not_windows_ci, windows_ci
 
 pytestmark = pytest.mark.unit
 
@@ -82,3 +87,32 @@ def test_will_fail_for_wrong_parameters_in_the_connection_string(instance_sql_de
 
     with pytest.raises(ConfigurationError, match=re.escape(match)):
         connection._connection_options_validation('somekey', 'somedb')
+
+
+@not_windows_ci
+@pytest.mark.integration
+@pytest.mark.usefixtures('dd_environment')
+def test_query_timeout(aggregator, dd_run_check, instance_docker):
+    _run_test_query_timeout(aggregator, dd_run_check, instance_docker)
+
+
+@windows_ci
+@pytest.mark.integration
+def test_query_timeout_windows(aggregator, dd_run_check, instance_sql_msoledb_dbm):
+    _run_test_query_timeout(aggregator, dd_run_check, instance_sql_msoledb_dbm)
+
+
+def _run_test_query_timeout(aggregator, dd_run_check, instance):
+    instance['command_timeout'] = 1
+    check = SQLServer(CHECK_NAME, {}, [instance])
+    check.initialize_connection()
+    with check.connection.open_managed_default_connection():
+        with check.connection.get_managed_cursor() as cursor:
+            cursor.execute("select 1")
+            try:
+                cursor.execute("waitfor delay '00:00:02'")
+            except Exception as e:
+                if isinstance(e, pyodbc.OperationalError):
+                    assert 'timeout' in "".join(e.args).lower(), "must be a timeout"
+                # crash to see what the windows type is
+                assert type(e) == pyodbc.OperationalError
