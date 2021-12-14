@@ -69,36 +69,36 @@ def instance_docker():
 
 
 @pytest.fixture
-def datadog_conn_docker(instance_docker):
+def datadog_conn_docker(dd_environment, instance_docker):
     # Make DB connection
     conn_str = 'DRIVER={};Server={};Database=master;UID={};PWD={};'.format(
         instance_docker['driver'], instance_docker['host'], instance_docker['username'], instance_docker['password']
     )
-    conn = pyodbc.connect(conn_str, timeout=30)
+    conn = pyodbc.connect(conn_str, timeout=30, autocommit=True)
     conn.timeout = 30
     yield conn
     conn.close()
 
 
 @pytest.fixture
-def bob_conn(instance_docker):
+def bob_conn(dd_environment, instance_docker):
     # Make DB connection
     conn_str = 'DRIVER={};Server={};Database=master;UID={};PWD={};'.format(
         instance_docker['driver'], instance_docker['host'], "bob", "Password12!"
     )
-    conn = pyodbc.connect(conn_str, timeout=30)
+    conn = pyodbc.connect(conn_str, timeout=30, autocommit=True)
     conn.timeout = 30
     yield conn
     conn.close()
 
 
 @pytest.fixture
-def sa_conn(instance_docker):
+def sa_conn(dd_environment, instance_docker):
     # system administrator connection
     conn_str = 'DRIVER={};Server={};Database=master;UID={};PWD={};'.format(
         instance_docker['driver'], instance_docker['host'], "sa", "Password123"
     )
-    conn = pyodbc.connect(conn_str, timeout=30)
+    conn = pyodbc.connect(conn_str, timeout=30, autocommit=True)
     conn.timeout = 30
     yield conn
     conn.close()
@@ -154,7 +154,7 @@ def dd_environment():
 
     def sqlserver_can_connect():
         conn = 'DRIVER={};Server={};Database=master;UID=sa;PWD=Password123;'.format(get_local_driver(), DOCKER_SERVER)
-        pyodbc.connect(conn, timeout=30)
+        pyodbc.connect(conn, timeout=30, autocommit=True)
 
     compose_file = os.path.join(HERE, os.environ["COMPOSE_FOLDER"], 'docker-compose.yaml')
     conditions = [
