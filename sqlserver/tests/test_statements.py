@@ -186,10 +186,22 @@ def test_statement_metrics_and_plans_windows(
     )
 
 
+def bob_conn_internal(instance_docker):
+    conn_str = 'DRIVER={};Server={};Database=master;UID={};PWD={};'.format(
+        instance_docker['driver'], instance_docker['host'], "bob", "Password12!"
+    )
+    conn = pyodbc.connect(conn_str, timeout=30)
+    conn.timeout = 30
+    return conn
+
+
 def _run_test_statement_metrics_and_plans(
     aggregator, dd_run_check, dbm_instance, bob_conn, database, plan_user, query, param_groups, match_pattern
 ):
     check = SQLServer(CHECK_NAME, {}, [dbm_instance])
+
+    # temp: see if it's the fixture causing problems with the connection
+    bob_conn = bob_conn_internal(dbm_instance)
 
     def _run_test_queries():
         for params in param_groups:
