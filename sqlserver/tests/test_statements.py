@@ -152,11 +152,15 @@ test_statement_metrics_and_plans_parameterized = (
 @pytest.mark.usefixtures('dd_environment')
 @pytest.mark.parametrize(*test_statement_metrics_and_plans_parameterized)
 def test_statement_metrics_and_plans(
-    aggregator, dd_run_check, dbm_instance, bob_conn, database, plan_user, query, param_groups, match_pattern
+    aggregator, dd_run_check, dbm_instance, database, plan_user, query, param_groups, match_pattern
 ):
-    _run_test_statement_metrics_and_plans(
-        aggregator, dd_run_check, dbm_instance, bob_conn, database, plan_user, query, param_groups, match_pattern
-    )
+    bob_conn = bob_conn_internal(dbm_instance)
+    try:
+        _run_test_statement_metrics_and_plans(
+            aggregator, dd_run_check, dbm_instance, bob_conn, database, plan_user, query, param_groups, match_pattern
+        )
+    finally:
+        bob_conn.close()
 
 
 @windows_ci
@@ -199,9 +203,6 @@ def _run_test_statement_metrics_and_plans(
     aggregator, dd_run_check, dbm_instance, bob_conn, database, plan_user, query, param_groups, match_pattern
 ):
     check = SQLServer(CHECK_NAME, {}, [dbm_instance])
-
-    # temp: see if it's the fixture causing problems with the connection
-    bob_conn = bob_conn_internal(dbm_instance)
 
     def _run_test_queries():
         for params in param_groups:
