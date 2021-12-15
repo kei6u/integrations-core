@@ -211,6 +211,12 @@ def _run_test_statement_metrics_and_plans(
                 cursor.execute(query, params)
                 cursor.fetchall()
 
+    # the check must be run three times:
+    # 1) set _last_stats_query_time (this needs to happen before the 1st test queries to ensure the query time
+    # interval is correct.
+    # 2) load the test queries into the StatementMetrics state
+    # 3) emit the query metrics based on the diff of current and last state
+    dd_run_check(check)
     _run_test_queries()
     dd_run_check(check)
     aggregator.reset()
