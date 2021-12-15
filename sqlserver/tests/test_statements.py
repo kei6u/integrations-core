@@ -192,9 +192,9 @@ def _run_test_statement_metrics_and_plans(
     check = SQLServer(CHECK_NAME, {}, [dbm_instance])
 
     def _run_test_queries():
-        with bob_conn.cursor() as cursor:
-            cursor.execute("USE {}".format(database))
-            for params in param_groups:
+        for params in param_groups:
+            with bob_conn.cursor() as cursor:
+                cursor.execute("USE {}".format(database))
                 cursor.execute(query, params)
                 cursor.fetchall()
 
