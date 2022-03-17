@@ -216,6 +216,13 @@ class AgentCheck(object):
         logger = logging.getLogger('{}.{}'.format(__name__, self.name))
         self.log = CheckLoggingAdapter(logger, self)
 
+        metric_patterns = self.instance.get('metric_patterns', {}) if instance else {}
+        if not isinstance(metric_patterns, dict):
+            raise ConfigurationError('Setting `metric_patterns` must be a mapping')
+
+        self.exclude_metrics_pattern = self._create_metrics_pattern(metric_patterns, 'exclude')
+        self.include_metrics_pattern = self._create_metrics_pattern(metric_patterns, 'include')
+
         # TODO: Remove with Agent 5
         # Set proxy settings
         self.proxies = self._get_requests_proxy()
@@ -282,6 +289,31 @@ class AgentCheck(object):
 
         if not PY2:
             self.check_initializations.append(self.load_configuration_models)
+
+    def _create_metrics_pattern(self, metric_patterns, option_name):
+        all_patterns = metric_patterns.get(option_name, [])
+
+        if not isinstance(all_patterns, list):
+            raise ConfigurationError('Setting `{}` of `metric_patterns` must be an array'.format(option_name))
+
+        metrics_patterns = []
+        for i, entry in enumerate(all_patterns, 1):
+            if not isinstance(entry, str):
+                raise ConfigurationError(
+                    'Entry #{} of setting `{}` of `metric_patterns` must be a string'.format(i, option_name)
+                )
+            if not entry:
+                self.log.debug(
+                    'Entry #%s of setting `%s` of `metric_patterns` must not be empty, ignoring', i, option_name
+                )
+                continue
+
+            metrics_patterns.append(entry)
+
+        if metrics_patterns:
+            return re.compile('|'.join(metrics_patterns))
+
+        return None
 
     def _get_metric_limiter(self, name, instance=None):
         # type: (str, InstanceType) -> Optional[Limiter]
@@ -407,12 +439,12 @@ class AgentCheck(object):
         # only import it when running in python 3
         from jellyfish import jaro_winkler_similarity
 
-        user_config = user_config or {}
+        user_configs = user_config or {}  # type: Dict[str, Any]
         models_config = models_config or {}
         typos = set()  # type: Set[str]
 
-        known_options = dict(models_config).keys()
-        unknown_options = sorted(list(user_config.keys() - known_options))
+        known_options = [k for k, _ in models_config]  # type: List[str]
+        unknown_options = [option for option in user_configs.keys() if option not in known_options]  # type: List[str]
 
         for unknown_option in unknown_options:
             similar_known_options = []  # type: List[Tuple[str, int]]
@@ -442,7 +474,10 @@ class AgentCheck(object):
             raw_shared_config.update(intg_shared_config)
 
             shared_config = self.load_configuration_model(package_path, 'SharedConfig', raw_shared_config)
-            self.log_typos_in_options(intg_shared_config, shared_config, 'init_config')
+            try:
+                self.log_typos_in_options(intg_shared_config, shared_config, 'init_config')
+            except Exception as e:
+                self.log.debug("Failed to detect typos in `init_config` section: %s", e)
             if shared_config is not None:
                 self._config_model_shared = shared_config
 
@@ -452,8 +487,10 @@ class AgentCheck(object):
             raw_instance_config.update(intg_instance_config)
 
             instance_config = self.load_configuration_model(package_path, 'InstanceConfig', raw_instance_config)
-            self.log_typos_in_options(intg_instance_config, instance_config, 'instances')
-
+            try:
+                self.log_typos_in_options(intg_instance_config, instance_config, 'instances')
+            except Exception as e:
+                self.log.debug("Failed to detect typos in `instances` section: %s", e)
             if instance_config is not None:
                 self._config_model_instance = instance_config
 
@@ -595,6 +632,21 @@ class AgentCheck(object):
 
         aggregator.submit_event_platform_event(self, self.check_id, to_native_string(raw_event), "dbm-activity")
 
+    def should_send_metric(self, metric_name):
+        return not self._metric_excluded(metric_name) and self._metric_included(metric_name)
+
+    def _metric_included(self, metric_name):
+        if self.include_metrics_pattern is None:
+            return True
+
+        return self.include_metrics_pattern.search(metric_name) is not None
+
+    def _metric_excluded(self, metric_name):
+        if self.exclude_metrics_pattern is None:
+            return False
+
+        return self.exclude_metrics_pattern.search(metric_name) is not None
+
     def _submit_metric(
         self, mtype, name, value, tags=None, hostname=None, device_name=None, raw=False, flush_first_value=False
     ):
@@ -606,6 +658,9 @@ class AgentCheck(object):
         tags = self._normalize_tags_type(tags or [], device_name, name)
         if hostname is None:
             hostname = ''
+
+        if not self.should_send_metric(name):
+            return
 
         if self.metric_limiter:
             if mtype in ONE_PER_CONTEXT_METRIC_TYPES:

@@ -77,18 +77,6 @@ EXPECTED_AO_METRICS_PRIMARY = [m[0] for m in AO_METRICS_PRIMARY]
 EXPECTED_AO_METRICS_SECONDARY = [m[0] for m in AO_METRICS_SECONDARY]
 EXPECTED_AO_METRICS_COMMON = [m[0] for m in AO_METRICS]
 
-CUSTOM_QUERY_A = {
-    'query': "SELECT letter, num FROM (VALUES (97, 'a'), (98, 'b'), (99, 'c')) AS t (num,letter)",
-    'columns': [{'name': 'customtag', 'type': 'tag'}, {'name': 'num', 'type': 'gauge'}],
-    'tags': ['query:custom'],
-}
-
-CUSTOM_QUERY_B = {
-    'query': "SELECT letter, num FROM (VALUES (97, 'a'), (98, 'b'), (99, 'c')) AS t (num,letter)",
-    'columns': [{'name': 'customtag', 'type': 'tag'}, {'name': 'num', 'type': 'gauge'}],
-    'tags': ['query:another_custom_one'],
-}
-
 INSTANCE_SQL_DEFAULTS = {
     'host': DOCKER_SERVER,
     'username': 'sa',
@@ -171,7 +159,7 @@ INIT_CONFIG_ALT_TABLES = {
 }
 
 
-def assert_metrics(aggregator, expected_tags, dbm_enabled=False):
+def assert_metrics(aggregator, expected_tags, dbm_enabled=False, hostname=None):
     """
     Boilerplate asserting all the expected metrics and service checks.
     Make sure ALL custom metric is tagged by database.
@@ -182,7 +170,8 @@ def assert_metrics(aggregator, expected_tags, dbm_enabled=False):
         dbm_excluded_metrics = [m[0] for m in DBM_MIGRATED_METRICS]
         expected_metrics = [m for m in EXPECTED_METRICS if m not in dbm_excluded_metrics]
     for mname in expected_metrics:
-        aggregator.assert_metric(mname)
+        assert hostname is not None, "hostname must be explicitly specified for all metrics"
+        aggregator.assert_metric(mname, hostname=hostname)
     aggregator.assert_service_check('sqlserver.can_connect', status=SQLServer.OK, tags=expected_tags)
     aggregator.assert_all_metrics_covered()
     aggregator.assert_no_duplicate_metrics()

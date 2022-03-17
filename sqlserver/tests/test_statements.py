@@ -65,7 +65,7 @@ def dbm_instance(instance_docker):
         ],
     ],
 )
-def test_get_available_query_metrics_columns(aggregator, dbm_instance, expected_columns, available_columns):
+def test_get_available_query_metrics_columns(dbm_instance, expected_columns, available_columns):
     check = SQLServer(CHECK_NAME, {}, [dbm_instance])
     check.initialize_connection()
     _conn_key_prefix = "dbm-"
@@ -289,13 +289,12 @@ def test_statement_metrics_and_plans(
 def test_statement_metadata(
     aggregator, dd_run_check, dbm_instance, bob_conn, datadog_agent, metadata, expected_metadata_payload
 ):
-    dbm_instance['obfuscator_options'] = {'collect_metadata': True}
     check = SQLServer(CHECK_NAME, {}, [dbm_instance])
 
     query = '''
     -- Test comment
     select * from sys.databases'''
-    query_signature = '6d1d070f9b6c5647'
+    query_signature = 'ee1663c796378ab0'
 
     def _run_query():
         bob_conn.execute_with_retries(query)
@@ -316,11 +315,18 @@ def test_statement_metadata(
 
     matching = [s for s in dbm_samples if s['db']['query_signature'] == query_signature and s['dbm_type'] == 'plan']
     assert len(matching) == 1
-
     sample = matching[0]
     assert sample['db']['metadata']['tables'] == expected_metadata_payload['tables']
     assert sample['db']['metadata']['commands'] == expected_metadata_payload['commands']
     assert sample['db']['metadata']['comments'] == expected_metadata_payload['comments']
+
+    fqt_samples = [
+        s for s in dbm_samples if s.get('dbm_type') == 'fqt' and s['db']['query_signature'] == query_signature
+    ]
+    assert len(fqt_samples) == 1
+    fqt = fqt_samples[0]
+    assert fqt['db']['metadata']['tables'] == expected_metadata_payload['tables']
+    assert fqt['db']['metadata']['commands'] == expected_metadata_payload['commands']
 
     dbm_metrics = aggregator.get_event_platform_events("dbm-metrics")
     assert len(dbm_metrics) == 1
